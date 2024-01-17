@@ -1,0 +1,32 @@
+apiVersion: rbacmanager.reactiveops.io/v1beta1
+kind: RBACDefinition
+metadata:
+  name: {{ .Release.Name }}
+rbacBindings:
+  - name: readonly
+    subjects:
+      - kind: Group
+        name: readonlygroup
+    clusterRoleBindings:
+      - clusterRole: view
+  - name: developer
+    subjects:
+      - kind: Group
+        name: developergroup
+    clusterRoleBindings:
+      - clusterRole: view
+    roleBindings:
+      - clusterRole: admin
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+                - super-secret-namespace
+  - name: admin
+    subjects:
+      - kind: Group
+        name: admin
+    clusterRoleBindings:
+      - clusterRole: cluster-admin

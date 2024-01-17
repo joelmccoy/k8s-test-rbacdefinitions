@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-policy-tests
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: test-policies-service-account
+  containers:
+    - name: tests
+      image: python:3.11-slim
+      command: [ /tests/run-tests.sh ]
+      volumeMounts:
+      - name: datasource-test-files
+        mountPath: /tests
+  restartPolicy: Never
+  volumes:
+    - name: datasource-test-files
+      configMap:
+        name: datasource-test-files
+        defaultMode: 0555
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datasource-test-files
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "integration-tests/**").AsConfig | indent 2}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-policies-service-account
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: impersonator
+rules:
+- apiGroups: [""]
+  resources: ["users", "groups", "serviceaccounts"]
+  verbs: ["impersonate"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["userextras/scopes", "uids"]
+  verbs: ["impersonate"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: impersonate
+subjects:
+- kind: ServiceAccount
+  name: test-policies-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: impersonator
+  apiGroup: rbac.authorization.k8s.io
